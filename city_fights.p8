@@ -1,0 +1,451 @@
+pico-8 cartridge // http://www.pico-8.com
+version 32
+__lua__
+-- main
+console=""
+current_state=nil
+current_scene=nil
+
+function _init()
+	palt(14,true)
+	palt(0,false)
+
+	local m=create_map(10,10)
+	local t={
+		make_character(4,4,72,"jeff",make_movement("x",3)),
+		make_character(3,1,70,"bob",make_movement("x",4)),
+		make_character(7,2,71,"karl",make_movement("x",2))
+	}
+
+	current_scene=create_scene(m,t)
+
+	-- current_state=select_character(team)
+	
+	cam={x=0,y=0}
+end
+
+function _update()
+	current_scene:update()
+	-- current_state:update()
+end
+
+function _draw()
+	cls(12)
+	
+	current_scene:draw()
+	-- scene:draw()
+	-- current_state:draw()
+	camera(cam.x,cam.y)
+	print(console,cam.x,cam.y)
+end
+-->8
+-- scene/map
+function create_scene(map,team)
+	return {
+		map=map,
+		team=team,
+		draw=function(s)
+			s.map:draw()
+			for player in all(s.team)do
+				player:draw()
+			end
+		end,
+		update=function(s)
+		end
+	}
+end
+
+function create_map(w,h)
+	return {
+		width=w,
+		height=h,
+		draw=function(s)
+			s:draw_walls()
+			for i=0,s.width-1,1do
+				for j=0,s.height-1,1do
+					local coords=cartoiso(i,j)
+					spr(0,coords.x,coords.y,3,2)
+				end	
+			end
+		end,
+		draw_walls=function(s)
+			for i=0,s.width,1do
+				for j=0,s.height,1do
+					if(i==0or j==0)then
+						local coords=cartoiso(i,j)
+						spr(96,coords.x,coords.y-23,3,3)
+						spr(3,coords.x,coords.y-29,3,3,i==0)
+					end
+				end
+			end
+		end
+	}
+end
+-- function create_scene(width,height)
+-- 	return {
+-- 		floor={
+-- 			width=width,
+-- 			height=height,
+-- 			draw=function(s)
+-- 				s:draw_walls()
+-- 				for i=0,s.width-1,1do
+-- 					for j=0,s.height-1,1do
+-- 						local coords=cartoiso(i,j)
+-- 						spr(0,coords.x,coords.y,3,2)
+-- 					end	
+-- 				end
+				
+-- 			end,
+-- 			draw_walls=function(s)
+-- 				for i=0,s.width,1do
+-- 					for j=0,s.height,1do
+-- 						if(i==0or j==0)then
+-- 							local coords=cartoiso(i,j)
+-- 							spr(96,coords.x,coords.y-23,3,3)
+-- 							spr(3,coords.x,coords.y-29,3,3,i==0)
+-- 						end
+-- 					end	
+-- 				end
+-- 			end
+-- 		},
+-- 		selected_tile={
+-- 				x=0,
+-- 				y=0
+-- 		},
+-- 		objects={},
+-- 		select_tile=function(s,x,y,sn)
+-- 			if(sn==nil)sn=6
+-- 			local coords=cartoiso(x,y)
+-- 			spr(sn,coords.x,coords.y,3,2)
+-- 		end,
+-- 		update=function(s)
+-- 		end,
+-- 		draw=function(s)
+-- 			s.floor:draw()
+-- 		end
+-- 	}
+-- end
+-->8
+-- char/team
+function make_character(x,y,s,n,m)
+	return {
+		name=n,
+		sprite=s,
+		x=x,
+		y=y,
+		movement=m,
+		update=function(s)end,
+		draw=function(s)
+			local coords=cartoiso(s.x,s.y)
+			spr(s.sprite,coords.x+(tile_width/2)+2,coords.y-(tile_width*0.75),1,2)
+		end
+	}
+end
+
+function make_movement(t,r)
+	return {
+		type=t,
+		radius=r
+	}
+end
+-->8
+-- game phases
+select_character=function(t,s)
+	if(s==nil)s=1
+	return {
+		selected_index=s,
+		update=function(s)
+			local c=false
+			if(btnp(0))then
+				s.selected_index-=1
+				c=true
+			elseif(btnp(1))then
+				s.selected_index+=1
+				c=true
+			end
+
+			if(s.selected_index<1)s.selected_index=count(t)
+			if(s.selected_index>count(t))s.selected_index=1
+			
+			if(c)then
+				local p=t[s.selected_index]
+				current_state=camera_shift(p.x,p.y,function()current_state=select_character(t,s.selected_index)end)	
+			end
+			
+			if(btnp(❎))current_state=choose_action(t[s.selected_index])
+		end,
+		draw=function(s)
+			local p=t[s.selected_index]
+			scene:select_tile(p.x,p.y)
+		end
+	}
+end
+
+choose_action=function(p)
+	local at={{x=p.x,y=p.y}}
+	local mt=p.movement.type
+		if(mt=="x")then
+			for i=1,p.movement.radius do
+				add(at,{x=p.x+i,y=p.y+i})
+				add(at,{x=p.x+i,y=p.y-i})
+				add(at,{x=p.x-i,y=p.y+i})
+				add(at,{x=p.x-i,y=p.y-i})
+			end
+		elseif(mt=="*")then
+		elseif(mt=="+")then
+	end
+
+	local t_v=function(x,y)
+		local v=false
+		foreach(at,function(o)
+			if(o.x==x and o.y==y)v=true
+		end)
+		return v
+	end
+
+	return {
+		s_x=p.x,
+		s_y=p.y,
+		update=function(s)
+			if(btnp(0))then s.s_x-=1
+			elseif(btnp(1))then s.s_x+=1
+			elseif(btnp(2))then s.s_y-=1
+			elseif(btnp(3))then s.s_y+=1
+			end
+
+			if(btnp(❎)and t_v(s.s_x,s.s_y))then
+				local c=function()current_state=select_character(team)end
+				current_state=character_movement(p,s.s_x,s.s_y,c)
+			end
+		end,
+		draw=function(s)
+			s:draw_movement()
+			local sp=12
+			if(t_v(s.s_x,s.s_y))sp-=6 
+			scene:select_tile(s.s_x,s.s_y,sp)
+		end,
+		draw_movement=function(s)
+			foreach(at,function(o)
+				scene:select_tile(o.x,o.y,9)
+			end)
+		end
+	}
+end
+
+animation_phase=function(d,a,c,dr)
+	local an=make_animator(d,a,c)
+	return {
+		update=function(s)
+			an:update()
+		end,
+		draw=function(s)
+			if(dr!=nil)dr()
+		end
+	}
+end
+
+character_movement=function(p,x,y,c)
+	local an=function(a)
+		p.x=a(p.x,x)
+		p.y=a(p.y,y)
+	end
+	return animation_phase(0.5,an,c)
+end
+
+character_hit=function(ch,c) -- need to figure out layer
+	local ssp=51
+	local an=function(a)
+		ssp=a(51,53)
+		console=ssp
+	end
+	local ha=cartoiso(ch.x,ch.y)
+	return animation_phase(0.25,an,c,function()
+		spr(ssp,ha.x+7,ha.y)
+	end)
+end
+
+camera_shift=function(x,y,c)
+	local x0,y0=cam.x,cam.y
+	local d=cartoiso(x,y)
+	local x1,y1=d.x-60,d.y-64
+	local an=function(a)
+		camera(a(x0,x1),a(y0,y1))
+		cam.x=x1
+		cam.y=y1
+	end
+	return animation_phase(0.25,an,c)
+end
+-->8
+-- utils
+tile_width=12
+function cartoiso(carx, cary)
+	local x=(carx*tile_width)-(cary*tile_width)
+	local y=(carx*tile_width/2)+(cary*tile_width/2)
+	return {x=x,y=y}
+end
+-->8
+-- animation
+function make_animator(d,a,c,f)
+	if(f==nil)f=linear
+	return{
+		e=0,
+		l=time(),
+		update=function(s)
+			if(s.e<=d)then
+				local t=time()
+	  			s.dt=t-s.l
+	  			s.l=t
+	  			s.e+=s.dt
+	  			a(function(b,c)return f(s.e,b,c-b,d)end)
+	  		else
+	  			a(function(b,c)return c end)
+	  			c()
+	  		end
+		end
+	}
+end
+
+outquad=function(t,b,c,d)
+  	t=t/d
+  	return -c*t*(t-2)+b
+end
+
+linear=function(t,b,c,d)return c*t/d+b end
+
+__gfx__
+eeeeeeeeeee00eeeeeeeeeeeeeeeeeeeeee22eeeeeeeeeeeeeeeeeeeeeebbeeeeeeeeeeeeeeeeeeeeee33eeeeeeeeeeeeeeeeeeeeee88eeeeeeeeeeeeeeeeeee
+eeeeeeeee005500eeeeeeeeeeeeeeeeee228822eeeeeeeeeeeeeeeeeebbeebbeeeeeeeeeeeeeeeeee33ee33eeeeeeeeeeeeeeeeee88ee88eeeeeeeeeeeeeeeee
+eeeeeee0055555500eeeeeeeeeeeeee2288888822eeeeeeeeeeeeeebbeeeeeebbeeeeeeeeeeeeee33eeeeee33eeeeeeeeeeeeee88eeeeee88eeeeeeeeeeeeeee
+eeeee00555555555500eeeeeeeeee22888888228822eeeeeeeeeebbeeeebbeeeebbeeeeeeeeee33eeeeeeeeee33eeeeeeeeee88eeee88eeee88eeeeeeeeeeeee
+eee555500555555555500eeeeee228888882288888822eeeeeebbeeeeeeeeeeeeeebbeeeeee33eeeeeeeeeeeeee33eeeeee88eeeeeeeeeeeeee88eeeeeeeeeee
+e5555555500555555555500ee2288888822888888228822eebbeeeebbeeeeeebbeeeebbee33eeeeeeeeeeeeeeeeee33ee88eeee88eeeeee88eeee88eeeeeeeee
+055555555550055555555550288888822888888228888882beeebbeeeeebbeeeeebbeeeb3eeeeeeeeeeeeeeeeeeeeee38eee88eeeee88eeeee88eee8eeeeeeee
+e0055555500550055555500ee2288228888882288888822eebbeeeebbeeeeeebbeeeebbee33eeeeeeeeeeeeeeeeee33ee88eeee88eeeeee88eeee88eeeeeeeee
+eee005500555555005500eeeeee228888882288888822eeeeeebbeeeeeeeeeeeeeebbeeeeee33eeeeeeeeeeeeee33eeeeee88eeeeeeeeeeeeee88eeeeeeeeeee
+eeeee00555555555500eeeeeeeeee22882288888822eeeeeeeeeebbeeeebbeeeebbeeeeeeeeee33eeeeeeeeee33eeeeeeeeee88eeee88eeee88eeeeeeeeeeeee
+eeeeeee0055555555eeeeeeeeeeeeee2288888822eeeeeeeeeeeeeebbeeeeeebbeeeeeeeeeeeeee33eeeeee33eeeeeeeeeeeeee88eeeeee88eeeeeeeeeeeeeee
+eeeeeeeee005555eeeeeeeeeeeeeeeeee228822eeeeeeeeeeeeeeeeeebbeebbeeeeeeeeeeeeeeeeee33ee33eeeeeeeeeeeeeeeeee88ee88eeeeeeeeeeeeeeeee
+eeeeeeeeeee00eeeeeeeeeeeeeeeeeeeeee22eeeeeeeeeeeeeeeeeeeeeebbeeeeeeeeeeeeeeeeeeeeee33eeeeeeeeeeeeeeeeeeeeee88eeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eee22eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+e224422eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+244444422eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+22244444422eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+2442244444422eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+244442244444422eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+2444444224444442eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+2444444442244222eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+2444444444422442eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+2444444444442442eeeeeeeeeeeeeeeeeeeeeeeee6eeee6eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+e224444444442442eeeeeeeeeeeee6eeee6ee6eeeeeee6eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eee2244444442442eeeeeeeeeee6eeeeeeee6eeeeee6eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeee22444442442eeeeeeeeeeee6eeeeee6eeeeeeee6eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeee224442442eeeeeeeeee6eeeeeee6ee6eeee6eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeee224222eeeeeeeeeeeeeeeeeeeeeeeeee6eeee6eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeee22eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+0eeeeeeeeeeeeeeeeeeeeee0eeeeeeeeeee00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000eeeeeee000000000eeeeeeeeeeeeeeeeeeeeeeeeeeee
+000eeeeeeeeeeeeeeeeee000eeeeeeeee000000eeeeeeeeeeeeeeeeeeee8eeeeeee8eeeeee0ddddddddd0eeeee0ddddddddd0eeeeeeeeeeeeeeeeeeeeeeeeeee
+04400eeeeeeeeeeeeee00440eeeeeee0044004400eeeeeeeeeeeeeeeee898eeeee888eeee0ddddddddddd0eee0ddddddddddd0eeeeeeeeeeeeeeeeeeeeeeeeee
+0444400eeeeeeeeee0099440eeeee00444400444400eeeeeee000eeeee888eeeee888eee0ddddddddddddd0e0ddddddddddddd0eeeeeeeeeeeeeeeeeeeeeeeee
+044444400eeeeee004494000eee004444440044444400eeeee888eeeee222eeeee222eee0ddddddddddddd0e0ddddddddddddd0eeeeeeeeeeeeeeeeeeeeeeeee
+04444444400ee00aa4400880e0044444444004444444400eee4ffeeeeeaffeeeeeaaaeee0ddddddddddddd0e0ddddddddddddd0eeeeeeeeeeeeeeeeeeeeeeeee
+044444444440044a40044840044444444006600444444440ee6f7eeeeefffeeeeefffeee0ddddddddddddd0e0ddddddddddddd0eeeeeeeeeeeeeeeeeeeeeeeee
+e0044444444004400bb4400e044444400666666004444440e77f77ee9982899e9999999e0ddddddddddddd0e0ddddddddddddd0eeeeeeeeeeeeeeeeeeeeeeeee
+eee00444444000044b400eee044440066666666660044440f77f77fe8982898e8999998e0ddddddddddddd0e0ddddddddddddd0eeeeeeeeeeeeeeeeeeeeeeeee
+eeeee00444400884400eeeee044006666666666666600440f77477fe8882888e8999998e0ddddddddddddd0e0ddddddddddddd0eeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeee0044008400eeeeeee000666666666666666666000477f774ef88288fef89998fe06ddddddddddd60e0ddddddddddddd0eeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeee000000eeeeeeeee066666666666666666666660e00000eee22222eee22922ee056ddddddddd650e06ddddddddddd60eeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeee00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee67777eee88888eee88888ee055666666666550e056ddddddddd650eeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee67e67eee5de5deee5de5deee0555555555550eee0566666666650eeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee67e67eee5de5deee5de5deeee05555555550eeeee05555555550eeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeffeffeee00e00eee00e00eeeee000000000eeeeeee000000000eeeeeeeeeeeeeeeeeeeeeeeeeeee
+6eeeeeeeeeeeeeeeeeeeeeedeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+666eeeeeeeeeeeeeeeeeedddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+66666eeeeeeeeeeeeeeddddd0eeeeeeeeeeeeeeeeeeeeee0eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+6666666eeeeeeeeeeddddddd000eeeeeeeeeeeeeeeeee000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+666666666eeeeeeddddddddd04400eeeeeeeeeeeeee00440eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+66666666666eeddddddddddd0444400eeeeeeeeee0099440eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+666666666666dddddddddddd044444400eeeeee004494000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+666666666666dddddddddddd04444444400ee00aa4400880eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+666666666666dddddddddddd044444444440044a40044840eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+666666666666dddddddddddde0044444444004400bb4400eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+666666666666ddddddddddddeee00444444000044b400eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+666666666666ddddddddddddeeeee00444400884400eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+666666666666ddddddddddddeeeeeee0044008400eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+666666666666ddddddddddddeeeeeeeee000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+666666666666ddddddddddddeeeeeeeeeee00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+666666666666ddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+666666666666ddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+666666666666ddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+e66666666666dddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eee666666666dddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeee6666666dddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeee66666dddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeee666dddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeee6deeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeee33eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeee334433eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeee3344444433eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeee33444444444433eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeee334444444444444433eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeee3344444444444444444433eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeee344444444444444444444443eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeee344444444444444444444443eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeed33444444444444444444335eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeddd334444444444444433555eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeddddd3344444444443355555eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeedddddd3344444433555555eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeedddddd334433555555eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeedddddd33555555eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeddddd55555eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeddd555eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeed5eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+__map__
+000a020300010203000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+1011000102031213000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+2021101112132223000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+3031202122233233000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000303132330000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+__sfx__
+010100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
