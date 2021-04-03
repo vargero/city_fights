@@ -28,7 +28,7 @@ function _draw()
 	cls(12)
 	
 	current_scene:draw()
-	print(console,current_scene.camera.x,current_scene.camera.y)
+	print(console,current_scene.camera.x,current_scene.camera.y,3)
 end
 -->8
 -- scene/map
@@ -65,6 +65,7 @@ function create_map(w,h)
 		height=h,
 		focused_tile=nil,
 		focused_tile_state=true,
+		highlighted_tiles=nil,
 		draw=function(s)
 			for i=0,s.width,1do
 				for j=0,s.height,1do
@@ -81,14 +82,22 @@ function create_map(w,h)
 					spr(0,coords.x,coords.y,3,2)
 				end	
 			end
+			if(s.highlighted_tiles!=nil)then
+				foreach(s.highlighted_tiles,function(o)
+					local coords=cartoiso(o.x,o.y)
+					spr(9,coords.x,coords.y,3,2)
+				end)
+			end
 			if(s.focused_tile!=nil)then
-				local sn=6
+				local sn=12
+				if(s.focused_tile_state)sn-=6
 				local coords=cartoiso(s.focused_tile.x,s.focused_tile.y)
 				spr(sn,coords.x,coords.y,3,2)
 			end
 		end,
 		clear_tiles=function(s)
 			s.focused_tile=nil
+			s.highlighted_tiles=nil
 		end,
 		focus_tile=function(s,v,vl)
 			if(vl==nil)vl=true
@@ -96,53 +105,25 @@ function create_map(w,h)
 				s.focused_tile=v
 				s.focused_tile_state=vl
 			end
+		end,
+		highlight_tiles=function(s,o,r)
+			s.highlighted_tiles={}
+			add(s.highlighted_tiles,v(o.x,o.y))
+			for i=1,r do
+				-- x
+				add(s.highlighted_tiles,v(o.x+i,o.y+i))
+				add(s.highlighted_tiles,v(o.x+i,o.y-i))
+				add(s.highlighted_tiles,v(o.x-i,o.y+i))
+				add(s.highlighted_tiles,v(o.x-i,o.y-i))
+				-- +
+				add(s.highlighted_tiles,v(o.x,o.y+i))
+				add(s.highlighted_tiles,v(o.x,o.y-i))
+				add(s.highlighted_tiles,v(o.x+i,o.y))
+				add(s.highlighted_tiles,v(o.x-i,o.y))
+			end
 		end
 	}
 end
--- function create_scene(width,height)
--- 	return {
--- 		floor={
--- 			width=width,
--- 			height=height,
--- 			draw=function(s)
--- 				s:draw_walls()
--- 				for i=0,s.width-1,1do
--- 					for j=0,s.height-1,1do
--- 						local coords=cartoiso(i,j)
--- 						spr(0,coords.x,coords.y,3,2)
--- 					end	
--- 				end
-				
--- 			end,
--- 			draw_walls=function(s)
--- 				for i=0,s.width,1do
--- 					for j=0,s.height,1do
--- 						if(i==0or j==0)then
--- 							local coords=cartoiso(i,j)
--- 							spr(96,coords.x,coords.y-23,3,3)
--- 							spr(3,coords.x,coords.y-29,3,3,i==0)
--- 						end
--- 					end	
--- 				end
--- 			end
--- 		},
--- 		selected_tile={
--- 				x=0,
--- 				y=0
--- 		},
--- 		objects={},
--- 		select_tile=function(s,x,y,sn)
--- 			if(sn==nil)sn=6
--- 			local coords=cartoiso(x,y)
--- 			spr(sn,coords.x,coords.y,3,2)
--- 		end,
--- 		update=function(s)
--- 		end,
--- 		draw=function(s)
--- 			s.floor:draw()
--- 		end
--- 	}
--- end
 -->8
 -- char/team
 function make_character(x,y,s,n,m)
@@ -200,52 +181,33 @@ select_character=function(t,s)
 end
 
 choose_action=function(p)
-	local at={{x=p.x,y=p.y}}
-	local mt=p.movement.type
-		if(mt=="x")then
-			for i=1,p.movement.radius do
-				add(at,{x=p.x+i,y=p.y+i})
-				add(at,{x=p.x+i,y=p.y-i})
-				add(at,{x=p.x-i,y=p.y+i})
-				add(at,{x=p.x-i,y=p.y-i})
-			end
-		elseif(mt=="*")then
-		elseif(mt=="+")then
-	end
+	current_scene.map:highlight_tiles(p.position,p.movement.radius)
 
-	local t_v=function(x,y)
+	local is_valid=function(ori)
 		local v=false
-		foreach(at,function(o)
-			if(o.x==x and o.y==y)v=true
+		foreach(current_scene.map.highlighted_tiles,function(o)
+			if(o.x==ori.x and o.y==ori.y)v=true
 		end)
 		return v
 	end
 
 	return {
-		s_x=p.x,
-		s_y=p.y,
+		selected_tile=v(p.position.x,p.position.y),
 		update=function(s)
-			if(btnp(0))then s.s_x-=1
-			elseif(btnp(1))then s.s_x+=1
-			elseif(btnp(2))then s.s_y-=1
-			elseif(btnp(3))then s.s_y+=1
+			if(btnp(0))then s.selected_tile.x-=1
+			elseif(btnp(1))then s.selected_tile.x+=1
+			elseif(btnp(2))then s.selected_tile.y-=1
+			elseif(btnp(3))then s.selected_tile.y+=1
 			end
 
-			if(btnp(❎)and t_v(s.s_x,s.s_y))then
-				local c=function()current_state=select_character(team)end
-				current_state=character_movement(p,s.s_x,s.s_y,c)
-			end
+			current_scene.map:focus_tile(s.selected_tile,is_valid(s.selected_tile))
+
+			-- if(btnp(❎)and t_v(s.selected_tile.x,s.selected_tile.x))then
+			-- 	local c=current_scene:state_callback(select_character(team))
+			-- 	current_scene:update_state(character_movement(p,s.s_x,s.s_y,c))
+			-- end
 		end,
 		draw=function(s)
-			s:draw_movement()
-			local sp=12
-			if(t_v(s.s_x,s.s_y))sp-=6 
-			scene:select_tile(s.s_x,s.s_y,sp)
-		end,
-		draw_movement=function(s)
-			foreach(at,function(o)
-				scene:select_tile(o.x,o.y,9)
-			end)
 		end
 	}
 end
@@ -338,15 +300,15 @@ linear=function(t,b,c,d)return c*t/d+b end
 __gfx__
 eeeeeeeeeee00eeeeeeeeeeeeeeeeeeeeee22eeeeeeeeeeeeeeeeeeeeeebbeeeeeeeeeeeeeeeeeeeeee33eeeeeeeeeeeeeeeeeeeeee88eeeeeeeeeeeeeeeeeee
 eeeeeeeee005500eeeeeeeeeeeeeeeeee228822eeeeeeeeeeeeeeeeeebbeebbeeeeeeeeeeeeeeeeee33ee33eeeeeeeeeeeeeeeeee88ee88eeeeeeeeeeeeeeeee
-eeeeeee0055555500eeeeeeeeeeeeee2288888822eeeeeeeeeeeeeebbeeeeeebbeeeeeeeeeeeeee33eeeeee33eeeeeeeeeeeeee88eeeeee88eeeeeeeeeeeeeee
-eeeee00555555555500eeeeeeeeee22888888228822eeeeeeeeeebbeeeebbeeeebbeeeeeeeeee33eeeeeeeeee33eeeeeeeeee88eeee88eeee88eeeeeeeeeeeee
-eee555500555555555500eeeeee228888882288888822eeeeeebbeeeeeeeeeeeeeebbeeeeee33eeeeeeeeeeeeee33eeeeee88eeeeeeeeeeeeee88eeeeeeeeeee
-e5555555500555555555500ee2288888822888888228822eebbeeeebbeeeeeebbeeeebbee33eeeeeeeeeeeeeeeeee33ee88eeee88eeeeee88eeee88eeeeeeeee
-055555555550055555555550288888822888888228888882beeebbeeeeebbeeeeebbeeeb3eeeeeeeeeeeeeeeeeeeeee38eee88eeeee88eeeee88eee8eeeeeeee
-e0055555500550055555500ee2288228888882288888822eebbeeeebbeeeeeebbeeeebbee33eeeeeeeeeeeeeeeeee33ee88eeee88eeeeee88eeee88eeeeeeeee
-eee005500555555005500eeeeee228888882288888822eeeeeebbeeeeeeeeeeeeeebbeeeeee33eeeeeeeeeeeeee33eeeeee88eeeeeeeeeeeeee88eeeeeeeeeee
-eeeee00555555555500eeeeeeeeee22882288888822eeeeeeeeeebbeeeebbeeeebbeeeeeeeeee33eeeeeeeeee33eeeeeeeeee88eeee88eeee88eeeeeeeeeeeee
-eeeeeee0055555555eeeeeeeeeeeeee2288888822eeeeeeeeeeeeeebbeeeeeebbeeeeeeeeeeeeee33eeeeee33eeeeeeeeeeeeee88eeeeee88eeeeeeeeeeeeeee
+eeeeeee0055555500eeeeeeeeeeeeee2288888822eeeeeeeeeeeeeebbeeeeeebbeeeeeeeeeeeeee333eeee333eeeeeeeeeeeeee88eeeeee88eeeeeeeeeeeeeee
+eeeee00555555555500eeeeeeeeee22888888228822eeeeeeeeeebbeeeebbeeeebbeeeeeeeeee33ee3eeee3ee33eeeeeeeeee88eeee88eeee88eeeeeeeeeeeee
+eee555500555555555500eeeeee228888882288888822eeeeeebbeeeeeeeeeeeeeebbeeeeee333eee3eeee3eee333eeeeee88eeeeeeeeeeeeee88eeeeeeeeeee
+e5555555500555555555500ee2288888822888888228822eebbeeeebbeeeeeebbeeeebbee33ee3eee3eeee3eee3ee33ee88eeee88eeeeee88eeee88eeeeeeeee
+055555555550055555555550288888822888888228888882beeebbeeeeebbeeeeebbeeeb3eeee3eee3eeee3eee3eeee38eee88eeeee88eeeee88eee8eeeeeeee
+e0055555500550055555500ee2288228888882288888822eebbeeeebbeeeeeebbeeeebbee33ee3eee3eeee3eee3ee33ee88eeee88eeeeee88eeee88eeeeeeeee
+eee005500555555005500eeeeee228888882288888822eeeeeebbeeeeeeeeeeeeeebbeeeeee333eee3eeee3eee333eeeeee88eeeeeeeeeeeeee88eeeeeeeeeee
+eeeee00555555555500eeeeeeeeee22882288888822eeeeeeeeeebbeeeebbeeeebbeeeeeeeeee33ee3eeee3ee33eeeeeeeeee88eeee88eeee88eeeeeeeeeeeee
+eeeeeee0055555555eeeeeeeeeeeeee2288888822eeeeeeeeeeeeeebbeeeeeebbeeeeeeeeeeeeee333eeee333eeeeeeeeeeeeee88eeeeee88eeeeeeeeeeeeeee
 eeeeeeeee005555eeeeeeeeeeeeeeeeee228822eeeeeeeeeeeeeeeeeebbeebbeeeeeeeeeeeeeeeeee33ee33eeeeeeeeeeeeeeeeee88ee88eeeeeeeeeeeeeeeee
 eeeeeeeeeee00eeeeeeeeeeeeeeeeeeeeee22eeeeeeeeeeeeeeeeeeeeeebbeeeeeeeeeeeeeeeeeeeeee33eeeeeeeeeeeeeeeeeeeeee88eeeeeeeeeeeeeeeeeee
 eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
