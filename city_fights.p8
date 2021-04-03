@@ -41,7 +41,7 @@ function create_scene(map,team,enemies)
 		map=map,
 		team=team,
 		enemies=enemies,
-		current_state=select_character(team),
+		current_state=user_turn(team),
 		draw=function(s)
 			s.map:draw()
 			for player in all(s.team)do
@@ -168,6 +168,7 @@ user_turn=function(team)
 	return {
 		update=function()
 			if(count(t)>0)then
+				current_scene:update_state(select_character(t,s))
 			else
 				current_scene:update_state(enemy_turn(current_scene.enemies))
 			end
@@ -183,7 +184,7 @@ enemy_turn=function(e)
 		update=function(s)
 			if(count(av)>0)then
 				local d=v(rnd(current_scene.map.width),rnd(current_scene.map.height))
-				local p=av[0]
+				local p=av[1]
 				del(av,p)
 				local lc=current_scene:state_callback(enemy_turn(av))
 				current_scene:update_state(character_movement(p,d,lc))
@@ -223,14 +224,18 @@ select_character=function(t,s)
 				current_scene:update_state(camera_shift(p.position,c))
 			end
 			
-			if(btnp(❎))current_scene:update_state(choose_movement(t[s.selected_index]))
+			if(btnp(❎))then
+				local sc=t[s.selected_index]
+				del(t,sc)
+				current_scene:update_state(choose_movement(sc,t))
+			end
 		end,
 		draw=function(s)
 		end
 	}
 end
 
-choose_movement=function(p,st)
+choose_movement=function(p,t,st)
 	current_scene.map:highlight_tiles(p.position,p.movement.radius)
 	if(st==nil)st=v(p.position.x,p.position.y)
 
@@ -255,13 +260,13 @@ choose_movement=function(p,st)
 			current_scene.map:focus_tile(s.selected_tile,is_valid(s.selected_tile))
 
 			if(st0.x!=s.selected_tile.x or st0.y!=s.selected_tile.y)then
-				local c=current_scene:state_callback(choose_movement(p,s.selected_tile))
+				local c=current_scene:state_callback(choose_movement(p,t,s.selected_tile))
 				current_scene:update_state(camera_shift(s.selected_tile,c))
 			end
 			if(btnp(❎)and is_valid(s.selected_tile))then
 				local c=function()
 					current_scene.map:clear_tiles()
-					current_scene:update_state(select_character(current_scene.team))
+					current_scene:update_state(user_turn(t))
 				end
 				current_scene:update_state(character_movement(p,s.selected_tile,c))
 			end
