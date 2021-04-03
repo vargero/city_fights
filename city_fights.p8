@@ -50,7 +50,7 @@ function create_scene(map,team)
 		end,
 		state_callback=function(s,p)
 			return function()
-				s.current_state=p
+				s:update_state(p)
 			end
 		end,
 		update_state=function(s,p)
@@ -121,6 +121,14 @@ function create_map(w,h)
 				add(s.highlighted_tiles,v(o.x+i,o.y))
 				add(s.highlighted_tiles,v(o.x-i,o.y))
 			end
+			local invalids={}
+			foreach(s.highlighted_tiles,function(h)
+				if(h.x<0 or h.x>=s.width or h.y<0 or h.y>=s.height)add(invalids,h)
+			end)
+
+			foreach(invalids,function(i)
+				del(s.highlighted_tiles,i)
+			end)
 		end
 	}
 end
@@ -149,12 +157,14 @@ end
 -->8
 -- game phases
 select_character=function(t,s)
-	if(s==nil)s=1
 	return {
 		selected_index=s,
 		update=function(s)
 			local c=false
-			if(btnp(0))then
+			if(s.selected_index==nil)then
+				s.selected_index=0
+				c=true
+			elseif(btnp(0))then
 				s.selected_index-=1
 				c=true
 			elseif(btnp(1))then
@@ -162,8 +172,8 @@ select_character=function(t,s)
 				c=true
 			end
 
-			if(s.selected_index<1)s.selected_index=count(t)
-			if(s.selected_index>count(t))s.selected_index=1
+			if(s.selected_index<1)s.selected_index=#t
+			if(s.selected_index>#t)s.selected_index=1
 			
 			local p=t[s.selected_index]
 			current_scene.map:focus_tile(p.position)
@@ -180,21 +190,22 @@ select_character=function(t,s)
 	}
 end
 
-choose_action=function(p)
+choose_action=function(p,st)
 	current_scene.map:highlight_tiles(p.position,p.movement.radius)
+	if(st==nil)st=v(p.position.x,p.position.y)
 
 	local is_valid=function(ori)
 		local v=false
 		foreach(current_scene.map.highlighted_tiles,function(o)
-			console="x:"..tostr(o.x).." y:"..tostr(o.y)
 			if(o.x==ori.x and o.y==ori.y)v=true
 		end)
 		return v
 	end
 
 	return {
-		selected_tile=v(p.position.x,p.position.y),
+		selected_tile=st,
 		update=function(s)
+			local st0=v(s.selected_tile.x,s.selected_tile.y)
 			if(btnp(0))then s.selected_tile.x-=1
 			elseif(btnp(1))then s.selected_tile.x+=1
 			elseif(btnp(2))then s.selected_tile.y-=1
@@ -203,10 +214,17 @@ choose_action=function(p)
 
 			current_scene.map:focus_tile(s.selected_tile,is_valid(s.selected_tile))
 
-			-- if(btnp(❎)and t_v(s.selected_tile.x,s.selected_tile.x))then
-			-- 	local c=current_scene:state_callback(select_character(team))
-			-- 	current_scene:update_state(character_movement(p,s.s_x,s.s_y,c))
-			-- end
+			if(st0.x!=s.selected_tile.x or st0.y!=s.selected_tile.y)then
+				local c=current_scene:state_callback(choose_action(p,s.selected_tile))
+				current_scene:update_state(camera_shift(s.selected_tile,c))
+			end
+			if(btnp(❎)and is_valid(s.selected_tile))then
+				local c=function()
+					current_scene.map:clear_tiles()
+					current_scene:update_state(select_character(current_scene.team))
+				end
+				current_scene:update_state(character_movement(p,s.selected_tile,c))
+			end
 		end,
 		draw=function(s)
 		end
@@ -225,10 +243,10 @@ animation_phase=function(d,a,c,dr,f)
 	}
 end
 
-character_movement=function(p,x,y,c)
+character_movement=function(p,pos,c)
 	local an=function(a)
-		p.x=a(p.x,x)
-		p.y=a(p.y,y)
+		p.position.x=a(p.position.x,pos.x)
+		p.position.y=a(p.position.y,pos.y)
 	end
 	return animation_phase(0.5,an,c)
 end
