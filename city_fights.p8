@@ -282,6 +282,10 @@ choose_movement=function(p,t,st)
 					current_scene:update_state(user_turn(t))
 				end
 				current_scene:update_state(character_movement(p,s.selected_tile,c))
+			elseif(btnp(🅾️))then
+				current_scene.map:clear_tiles()
+				add(t,p)
+				current_scene:update_state(user_turn(t))
 			end
 		end,
 		draw=function(s)
