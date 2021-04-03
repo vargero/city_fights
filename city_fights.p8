@@ -16,8 +16,11 @@ function _init()
 		make_character(3,1,70,"bob",make_movement("x",4)),
 		make_character(7,2,71,"karl",make_movement("x",2))
 	}
+	local e={
+		make_character(8,7,73,"cop",make_movement("x",3))
+	}
 
-	current_scene=create_scene(m,t)
+	current_scene=create_scene(m,t,e)
 end
 
 function _update()
@@ -32,16 +35,20 @@ function _draw()
 end
 -->8
 -- scene/map
-function create_scene(map,team)
+function create_scene(map,team,enemies)
 	return {
 		camera=v(0,0),
 		map=map,
 		team=team,
+		enemies=enemies,
 		current_state=select_character(team),
 		draw=function(s)
 			s.map:draw()
 			for player in all(s.team)do
 				player:draw()
+			end
+			for enemy in all(s.enemies)do
+				enemy:draw()
 			end
 			camera(s.camera.x,s.camera.y)
 		end,
@@ -156,6 +163,39 @@ function make_movement(t,r)
 end
 -->8
 -- game phases
+user_turn=function(team)
+	local t=cp_array(team)
+	return {
+		update=function()
+			if(count(t)>0)then
+			else
+				current_scene:update_state(enemy_turn(current_scene.enemies))
+			end
+		end,
+		draw=function()
+		end
+	}
+end
+
+enemy_turn=function(e)
+	local av=cp_array(e)
+	return {
+		update=function(s)
+			if(count(av)>0)then
+				local d=v(rnd(current_scene.map.width),rnd(current_scene.map.height))
+				local p=av[0]
+				del(av,p)
+				local lc=current_scene:state_callback(enemy_turn(av))
+				current_scene:update_state(character_movement(p,d,lc))
+			else
+				current_scene:update_state(user_turn(current_scene.team))
+			end
+		end,
+		draw=function()
+		end
+	}
+end
+
 select_character=function(t,s)
 	return {
 		selected_index=s,
@@ -183,14 +223,14 @@ select_character=function(t,s)
 				current_scene:update_state(camera_shift(p.position,c))
 			end
 			
-			if(btnp(❎))current_scene:update_state(choose_action(t[s.selected_index]))
+			if(btnp(❎))current_scene:update_state(choose_movement(t[s.selected_index]))
 		end,
 		draw=function(s)
 		end
 	}
 end
 
-choose_action=function(p,st)
+choose_movement=function(p,st)
 	current_scene.map:highlight_tiles(p.position,p.movement.radius)
 	if(st==nil)st=v(p.position.x,p.position.y)
 
@@ -215,7 +255,7 @@ choose_action=function(p,st)
 			current_scene.map:focus_tile(s.selected_tile,is_valid(s.selected_tile))
 
 			if(st0.x!=s.selected_tile.x or st0.y!=s.selected_tile.y)then
-				local c=current_scene:state_callback(choose_action(p,s.selected_tile))
+				local c=current_scene:state_callback(choose_movement(p,s.selected_tile))
 				current_scene:update_state(camera_shift(s.selected_tile,c))
 			end
 			if(btnp(❎)and is_valid(s.selected_tile))then
@@ -287,6 +327,12 @@ function v(x,y)
 	if(y==nil)y=0
 	return{x=x,y=y}
 end
+
+function cp_array(a)
+	local r={}
+	foreach(a,function(o)add(r,o)end)
+	return r
+end
 -->8
 -- animation
 function make_animator(d,a,c,f)
@@ -349,22 +395,22 @@ eeeee22444442442eeeeeeeeeeee6eeeeee6eeeeeeee6eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 eeeeeee224442442eeeeeeeeee6eeeeeee6ee6eeee6eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 eeeeeeeee224222eeeeeeeeeeeeeeeeeeeeeeeeee6eeee6eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 eeeeeeeeeee22eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-0eeeeeeeeeeeeeeeeeeeeee0eeeeeeeeeee00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000eeeeeee000000000eeeeeeeeeeeeeeeeeeeeeeeeeeee
-000eeeeeeeeeeeeeeeeee000eeeeeeeee000000eeeeeeeeeeeeeeeeeeee8eeeeeee8eeeeee0ddddddddd0eeeee0ddddddddd0eeeeeeeeeeeeeeeeeeeeeeeeeee
-04400eeeeeeeeeeeeee00440eeeeeee0044004400eeeeeeeeeeeeeeeee898eeeee888eeee0ddddddddddd0eee0ddddddddddd0eeeeeeeeeeeeeeeeeeeeeeeeee
-0444400eeeeeeeeee0099440eeeee00444400444400eeeeeee000eeeee888eeeee888eee0ddddddddddddd0e0ddddddddddddd0eeeeeeeeeeeeeeeeeeeeeeeee
-044444400eeeeee004494000eee004444440044444400eeeee888eeeee222eeeee222eee0ddddddddddddd0e0ddddddddddddd0eeeeeeeeeeeeeeeeeeeeeeeee
-04444444400ee00aa4400880e0044444444004444444400eee4ffeeeeeaffeeeeeaaaeee0ddddddddddddd0e0ddddddddddddd0eeeeeeeeeeeeeeeeeeeeeeeee
-044444444440044a40044840044444444006600444444440ee6f7eeeeefffeeeeefffeee0ddddddddddddd0e0ddddddddddddd0eeeeeeeeeeeeeeeeeeeeeeeee
-e0044444444004400bb4400e044444400666666004444440e77f77ee9982899e9999999e0ddddddddddddd0e0ddddddddddddd0eeeeeeeeeeeeeeeeeeeeeeeee
-eee00444444000044b400eee044440066666666660044440f77f77fe8982898e8999998e0ddddddddddddd0e0ddddddddddddd0eeeeeeeeeeeeeeeeeeeeeeeee
-eeeee00444400884400eeeee044006666666666666600440f77477fe8882888e8999998e0ddddddddddddd0e0ddddddddddddd0eeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeee0044008400eeeeeee000666666666666666666000477f774ef88288fef89998fe06ddddddddddd60e0ddddddddddddd0eeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeee000000eeeeeeeee066666666666666666666660e00000eee22222eee22922ee056ddddddddd650e06ddddddddddd60eeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeee00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee67777eee88888eee88888ee055666666666550e056ddddddddd650eeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee67e67eee5de5deee5de5deee0555555555550eee0566666666650eeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee67e67eee5de5deee5de5deeee05555555550eeeee05555555550eeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeffeffeee00e00eee00e00eeeee000000000eeeeeee000000000eeeeeeeeeeeeeeeeeeeeeeeeeeee
+0eeeeeeeeeeeeeeeeeeeeee0eeeeeeeeeee00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000eeeeeeeeeeeeeeeeeeeeeeeeeeee
+000eeeeeeeeeeeeeeeeee000eeeeeeeee000000eeeeeeeeeeeeeeeeeeee8eeeeeee8eeeeeeeeeeeeeeeeeeeeee0ddddddddd0eeeeeeeeeeeeeeeeeeeeeeeeeee
+04400eeeeeeeeeeeeee00440eeeeeee0044004400eeeeeeeeeeeeeeeee898eeeee888eeeeeeeeeeeeeeeeeeee0ddddddddddd0eeeeeeeeeeeeeeeeeeeeeeeeee
+0444400eeeeeeeeee0099440eeeee00444400444400eeeeeee000eeeee888eeeee888eeeee33aeeeeeeeeeee0ddddddddddddd0eeeeeeeeeeeeeeeeeeeeeeeee
+044444400eeeeee004494000eee004444440044444400eeeee888eeeee222eeeee222eeeee3333eeeeeeeeee0ddddddddddddd0eeeeeeeeeeeeeeeeeeeeeeeee
+04444444400ee00aa4400880e0044444444004444444400eee4ffeeeeeaffeeeeeaaaeeeee0ffeeeeeeeeeee0ddddddddddddd0eeeeeeeeeeeeeeeeeeeeeeeee
+044444444440044a40044840044444444006600444444440ee6f7eeeeefffeeeeefffeeeeeff0eeeeeeeeeee0ddddddddddddd0eeeeeeeeeeeeeeeeeeeeeeeee
+e0044444444004400bb4400e044444400666666004444440e77f77ee9982899e9999999e3330333eeeeeeeee0ddddddddddddd0eeeeeeeeeeeeeeeeeeeeeeeee
+eee00444444000044b400eee044440066666666660044440f77f77fe8982898e8999998e3a30333eeeeeeeee0ddddddddddddd0eeeeeeeeeeeeeeeeeeeeeeeee
+eeeee00444400884400eeeee044006666666666666600440f77477fe8882888e8999998e3330333eeeeeeeee0ddddddddddddd0eeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeee0044008400eeeeeee000666666666666666666000477f774ef88288fef89998fef33033feeeeeeeee0ddddddddddddd0eeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeee000000eeeeeeeee066666666666666666666660e00000eee22222eee22922eee00000eeeeeeeeee06ddddddddddd60eeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeee00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee67777eee88888eee88888eee43333eeeeeeeeee056ddddddddd650eeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee67e67eee5de5deee5de5deee43e43eeeeeeeeeee0566666666650eeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee67e67eee5de5deee5de5deee43e43eeeeeeeeeeee05555555550eeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeffeffeee00e00eee00e00eee00e00eeeeeeeeeeeee000000000eeeeeeeeeeeeeeeeeeeeeeeeeeee
 6eeeeeeeeeeeeeeeeeeeeeedeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 666eeeeeeeeeeeeeeeeeedddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 66666eeeeeeeeeeeeeeddddd0eeeeeeeeeeeeeeeeeeeeee0eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
