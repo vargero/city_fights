@@ -106,6 +106,15 @@ function create_map(w,h)
 			s.focused_tile=nil
 			s.highlighted_tiles=nil
 		end,
+		is_tile_busy=function(s,t)
+			local r=false
+			local f=function(o)
+				if(t.x==o.position.x and t.y==o.position.y)r=true
+			end
+			foreach(current_scene.team,f)
+			foreach(current_scene.enemies,f)
+			return r
+		end,
 		focus_tile=function(s,v,vl)
 			if(vl==nil)vl=true
 			if(v.x>=0 and v.x<s.width and v.y>=0 and v.y<s.height)then
@@ -131,6 +140,7 @@ function create_map(w,h)
 			local invalids={}
 			foreach(s.highlighted_tiles,function(h)
 				if(h.x<0 or h.x>=s.width or h.y<0 or h.y>=s.height)add(invalids,h)
+				if(s:is_tile_busy(h))add(invalids,h)
 			end)
 
 			foreach(invalids,function(i)
@@ -183,7 +193,10 @@ enemy_turn=function(e)
 	return {
 		update=function(s)
 			if(count(av)>0)then
-				local d=v(flr(rnd(current_scene.map.width)),flr(rnd(current_scene.map.height)))
+				local d=nil
+				repeat
+					d=v(flr(rnd(current_scene.map.width)),flr(rnd(current_scene.map.height)))
+				until(current_scene.map:is_tile_busy(d)==false)
 				local p=av[1]
 				del(av,p)
 				local lc=current_scene:state_callback(enemy_turn(av))
