@@ -18,39 +18,43 @@ function _init()
 	}
 
 	current_scene=create_scene(m,t)
-
-	-- current_state=select_character(team)
-	
-	cam={x=0,y=0}
 end
 
 function _update()
 	current_scene:update()
-	-- current_state:update()
 end
 
 function _draw()
 	cls(12)
 	
 	current_scene:draw()
-	-- scene:draw()
-	-- current_state:draw()
-	camera(cam.x,cam.y)
-	print(console,cam.x,cam.y)
+	print(console,current_scene.camera.x,current_scene.camera.y)
 end
 -->8
 -- scene/map
 function create_scene(map,team)
 	return {
+		camera=v(0,0),
 		map=map,
 		team=team,
+		current_state=select_character(team),
 		draw=function(s)
 			s.map:draw()
 			for player in all(s.team)do
 				player:draw()
 			end
+			camera(s.camera.x,s.camera.y)
 		end,
 		update=function(s)
+			if(s.current_state!=nil)s.current_state:update()
+		end,
+		state_callback=function(s,p)
+			return function()
+				s.current_state=p
+			end
+		end,
+		update_state=function(s,p)
+			s.current_state=p
 		end
 	}
 end
@@ -59,16 +63,9 @@ function create_map(w,h)
 	return {
 		width=w,
 		height=h,
+		focused_tile=nil,
+		focused_tile_state=true,
 		draw=function(s)
-			s:draw_walls()
-			for i=0,s.width-1,1do
-				for j=0,s.height-1,1do
-					local coords=cartoiso(i,j)
-					spr(0,coords.x,coords.y,3,2)
-				end	
-			end
-		end,
-		draw_walls=function(s)
 			for i=0,s.width,1do
 				for j=0,s.height,1do
 					if(i==0or j==0)then
@@ -77,6 +74,27 @@ function create_map(w,h)
 						spr(3,coords.x,coords.y-29,3,3,i==0)
 					end
 				end
+			end
+			for i=0,s.width-1,1do
+				for j=0,s.height-1,1do
+					local coords=cartoiso(i,j)
+					spr(0,coords.x,coords.y,3,2)
+				end	
+			end
+			if(s.focused_tile!=nil)then
+				local sn=6
+				local coords=cartoiso(s.focused_tile.x,s.focused_tile.y)
+				spr(sn,coords.x,coords.y,3,2)
+			end
+		end,
+		clear_tiles=function(s)
+			s.focused_tile=nil
+		end,
+		focus_tile=function(s,v,vl)
+			if(vl==nil)vl=true
+			if(v.x>=0 and v.x<s.width and v.y>=0 and v.y<s.height)then
+				s.focused_tile=v
+				s.focused_tile_state=vl
 			end
 		end
 	}
@@ -131,12 +149,11 @@ function make_character(x,y,s,n,m)
 	return {
 		name=n,
 		sprite=s,
-		x=x,
-		y=y,
+		position=v(x,y),
 		movement=m,
 		update=function(s)end,
 		draw=function(s)
-			local coords=cartoiso(s.x,s.y)
+			local coords=cartoiso(s.position.x,s.position.y)
 			spr(s.sprite,coords.x+(tile_width/2)+2,coords.y-(tile_width*0.75),1,2)
 		end
 	}
@@ -167,16 +184,17 @@ select_character=function(t,s)
 			if(s.selected_index<1)s.selected_index=count(t)
 			if(s.selected_index>count(t))s.selected_index=1
 			
+			local p=t[s.selected_index]
+			current_scene.map:focus_tile(p.position)
+			
 			if(c)then
-				local p=t[s.selected_index]
-				current_state=camera_shift(p.x,p.y,function()current_state=select_character(t,s.selected_index)end)	
+				local c=current_scene:state_callback(select_character(t,s.selected_index))
+				current_scene:update_state(camera_shift(p.position,c))
 			end
 			
-			if(btnp(❎))current_state=choose_action(t[s.selected_index])
+			if(btnp(❎))current_scene:update_state(choose_action(t[s.selected_index]))
 		end,
 		draw=function(s)
-			local p=t[s.selected_index]
-			scene:select_tile(p.x,p.y)
 		end
 	}
 end
@@ -232,8 +250,8 @@ choose_action=function(p)
 	}
 end
 
-animation_phase=function(d,a,c,dr)
-	local an=make_animator(d,a,c)
+animation_phase=function(d,a,c,dr,f)
+	local an=make_animator(d,a,c,f)
 	return {
 		update=function(s)
 			an:update()
@@ -264,16 +282,15 @@ character_hit=function(ch,c) -- need to figure out layer
 	end)
 end
 
-camera_shift=function(x,y,c)
-	local x0,y0=cam.x,cam.y
-	local d=cartoiso(x,y)
+camera_shift=function(p,c)
+	local cc=current_scene.camera
+	local x0,y0=cc.x,cc.y
+	local d=cartoiso(p.x,p.y)
 	local x1,y1=d.x-60,d.y-64
 	local an=function(a)
-		camera(a(x0,x1),a(y0,y1))
-		cam.x=x1
-		cam.y=y1
+		current_scene.camera=v(a(x0,x1),a(y0,y1))
 	end
-	return animation_phase(0.25,an,c)
+	return animation_phase(0.25,an,c,nil,outquad)
 end
 -->8
 -- utils
@@ -281,7 +298,13 @@ tile_width=12
 function cartoiso(carx, cary)
 	local x=(carx*tile_width)-(cary*tile_width)
 	local y=(carx*tile_width/2)+(cary*tile_width/2)
-	return {x=x,y=y}
+	return v(x,y)
+end
+
+function v(x,y)
+	if(x==nil)x=0
+	if(y==nil)y=0
+	return{x=x,y=y}
 end
 -->8
 -- animation
