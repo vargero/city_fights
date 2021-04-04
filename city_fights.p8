@@ -195,6 +195,11 @@ end
 char_turn=function(team,char)
 	return {
 		update=function(s)
+			if(ui.current_state!=ui.states.s_act)then
+				local c=current_scene:state_callback(char_turn(team,char))
+				current_scene:update_state(change_menu_state(ui.states.s_act,c))
+				return
+			end
 			if(btnp(2))then
 				ui.current_state.current_option-=1
 			elseif(btnp(3))then
@@ -202,7 +207,12 @@ char_turn=function(team,char)
 			end
 			if(ui.current_state.current_option<0)ui.current_state.current_option=ui.current_state.options-1
 			if(ui.current_state.current_option>=ui.current_state.options)ui.current_state.current_option=0
-			if(btnp(🅾️))then
+			if(btnp(❎))then
+				if(ui.current_state.current_option==0)then
+					local c=current_scene:state_callback(choose_movement(char,team))
+					current_scene:update_state(change_menu_state(ui.states.hide,c))
+				end
+			elseif(btnp(🅾️))then
 				add(team,char)
 				current_scene:update_state(user_turn(team))
 			end
@@ -265,8 +275,7 @@ select_character=function(t,s)
 			if(btnp(❎))then
 				local sc=t[s.selected_index]
 				del(t,sc)
-				local c=current_scene:state_callback(char_turn(t,sc))
-				current_scene:update_state(change_menu_state(ui.states.s_act,c))
+				current_scene:update_state(char_turn(t,sc))
 			end
 		end,
 		draw=function(s)
@@ -305,13 +314,12 @@ choose_movement=function(p,t,st)
 			if(btnp(❎)and is_valid(s.selected_tile))then
 				local c=function()
 					current_scene.map:clear_tiles()
-					current_scene:update_state(user_turn(t))
+					current_scene:update_state(char_turn(t,p))
 				end
 				current_scene:update_state(character_movement(p,s.selected_tile,c))
 			elseif(btnp(🅾️))then
 				current_scene.map:clear_tiles()
-				add(t,p)
-				current_scene:update_state(user_turn(t))
+				current_scene:update_state(char_turn(t,p))
 			end
 		end,
 		draw=function(s)
@@ -405,9 +413,7 @@ function make_char_bar(p)
 			},
 			s_act={ 
 				draw=function(b,c,o)
-					spr(144,o.x,o.y+16,4,1)
-					spr(144,o.x,o.y+24,4,1)
-					spr(144,o.x,o.y+32,4,1)
+					
 					print("♥",o.x+1,o.y+4,8)
 					print("90/00",o.x+9,o.y+4,7)
 					print("◆",o.x+1,o.y+10,12)
@@ -427,6 +433,14 @@ function make_char_bar(p)
 				y_position=88,
 				options=4,
 				current_option=0
+			},
+			hide={
+				draw=function(b,c,o)
+					spr(c.sprite,o.x+4,o.y+1)
+					prints(c.name,o.x+11,o.y+4,7)
+				end,
+				y_position=118
+
 			}
 		},
 		draw=function(s)
@@ -434,6 +448,9 @@ function make_char_bar(p)
 			local c=current_scene.camera
 			local o=v(c.x+s.offset.x,c.y+s.offset.y)
 			spr(128,o.x,o.y,4,2)
+			spr(144,o.x,o.y+16,4,1)
+			spr(144,o.x,o.y+24,4,1)
+			spr(144,o.x,o.y+32,4,1)
 			s.current_state:draw(s.char,o)
 		end
 	}
