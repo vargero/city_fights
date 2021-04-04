@@ -22,7 +22,7 @@ function _init()
 	}
 
 	current_scene=create_scene(m,t,e)
-	ui=make_char_bar(t[1])
+	ui=make_char_bar(t[3])
 end
 
 function _update()
@@ -181,7 +181,8 @@ user_turn=function(team)
 	return {
 		update=function()
 			if(#t>0)then
-				current_scene:update_state(select_character(t,s))
+				local c=current_scene:state_callback(select_character(t,s))
+				current_scene:update_state(change_menu_state(ui.states.s_char,c))
 			else
 				current_scene:update_state(enemy_turn(current_scene.enemies))
 			end
@@ -340,10 +341,11 @@ camera_shift=function(p,c)
 	return animation_phase(0.25,an,c,nil,outquad)
 end
 
-user_menu_up=function(c)
+change_menu_state=function(state,c)
 	local y=ui.offset.y
+	ui.current_state=state
 	local an=function(a)
-		ui.offset.y=a(y,-100)
+		ui.offset.y=a(y,state.y_position)
 	end
 	
 	return animation_phase(0.5,an,c,nil,outquad)
@@ -352,12 +354,16 @@ end
 -- ui
 function make_char_bar(p)
 	return {
-		offset=v(2,88),
+		offset=v(2,128),
 		char=p,
+		current_state=nil,
 		states={
 			s_char={ 
-				update=function(b,c,o)
-					spr(s.char.sprite,o.x+4,o.y+1)
+				draw=function(b,c,o)
+					spr(144,o.x,o.y+16,4,1)
+					spr(144,o.x,o.y+18,4,1)
+
+					spr(c.sprite,o.x+4,o.y+1)
 					prints(c.name,o.x+11,o.y+4,7)
 					
 					pset(o.x+3,o.y+5,7)
@@ -367,17 +373,20 @@ function make_char_bar(p)
 					pset(o.x+28,o.y+6,7)
 					pset(o.x+27,o.y+7,7)
 					
-					print("♥",o.x+1,o.y+11,8)
-					print("90/00",o.x+9,o.y+11,7)
-					print("◆",o.x+1,o.y+18,12)
-					print("90",o.x+9,o.y+18,7)
-					print("✽",o.x+17,o.y+18,3)
-					print(c.movement.radius,o.x+25,o.y+18,7)
+					print("♥",o.x+1,o.y+12,8)
+					print("90/00",o.x+9,o.y+12,7)
+					print("◆",o.x+1,o.y+19,12)
+					print("90",o.x+9,o.y+19,7)
+					print("✽",o.x+17,o.y+19,3)
+					print(c.movement.radius,o.x+25,o.y+19,7)
 				end,
-				y_position=0
+				y_position=102
 			},
 			s_act={ 
-				update=function(b,c,o)
+				draw=function(b,c,o)
+					spr(144,o.x,o.y+16,4,1)
+					spr(144,o.x,o.y+24,4,1)
+					spr(144,o.x,o.y+32,4,1)
 					print("♥",o.x+1,o.y+4,8)
 					print("90/00",o.x+9,o.y+4,7)
 					print("◆",o.x+1,o.y+10,12)
@@ -386,20 +395,18 @@ function make_char_bar(p)
 					print(c.movement.radius,o.x+25,o.y+10,7)
 					prints("move",o.x+3,o.y+16,7)
 					prints("atck",o.x+3,o.y+22,7)
-					prints("skill",o.x+3,o.y+28,7)
 					prints("dfnd",o.x+3,o.y+34,7)
+					prints("skip",o.x+3,o.y+28,7)
 				end,
-				y_position=0
+				y_position=88
 			}
 		},
 		draw=function(s)
+			if(s.current_state==nil)return
 			local c=current_scene.camera
 			local o=v(c.x+s.offset.x,c.y+s.offset.y)
 			spr(128,o.x,o.y,4,2)
-			spr(144,o.x,o.y+16,4,1)
-			spr(144,o.x,o.y+24,4,1)
-			spr(144,o.x,o.y+32,4,1)
-			s.states.s_act:update(s.char,o)
+			s.current_state:draw(s.char,o)
 		end
 	}
 end
