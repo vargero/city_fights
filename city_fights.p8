@@ -211,6 +211,8 @@ char_turn=function(team,char)
 				if(ui.current_state.current_option==0)then
 					local c=current_scene:state_callback(choose_movement(char,team))
 					current_scene:update_state(change_menu_state(ui.states.hide,c))
+				elseif(ui.current_state.current_option==3)then
+					current_scene:update_state(user_turn(team))
 				end
 			elseif(btnp(🅾️))then
 				add(team,char)
