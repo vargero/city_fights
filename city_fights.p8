@@ -192,6 +192,26 @@ user_turn=function(team)
 	}
 end
 
+char_turn=function(team,char)
+	return {
+		update=function(s)
+			if(btnp(2))then
+				ui.current_state.current_option-=1
+			elseif(btnp(3))then
+				ui.current_state.current_option+=1
+			end
+			if(ui.current_state.current_option<0)ui.current_state.current_option=ui.current_state.options-1
+			if(ui.current_state.current_option>=ui.current_state.options)ui.current_state.current_option=0
+			if(btnp(🅾️))then
+				add(team,char)
+				current_scene:update_state(user_turn(team))
+			end
+		end,
+		draw=function(s)
+		end
+	}
+end
+
 enemy_turn=function(e)
 	local av=cp_array(e)
 	return {
@@ -245,7 +265,8 @@ select_character=function(t,s)
 			if(btnp(❎))then
 				local sc=t[s.selected_index]
 				del(t,sc)
-				current_scene:update_state(choose_movement(sc,t))
+				local c=current_scene:state_callback(char_turn(t,sc))
+				current_scene:update_state(change_menu_state(ui.states.s_act,c))
 			end
 		end,
 		draw=function(s)
@@ -380,7 +401,7 @@ function make_char_bar(p)
 					print("✽",o.x+17,o.y+19,3)
 					print(c.movement.radius,o.x+25,o.y+19,7)
 				end,
-				y_position=102
+				y_position=102,
 			},
 			s_act={ 
 				draw=function(b,c,o)
@@ -395,10 +416,17 @@ function make_char_bar(p)
 					print(c.movement.radius,o.x+25,o.y+10,7)
 					prints("move",o.x+3,o.y+16,7)
 					prints("atck",o.x+3,o.y+22,7)
-					prints("dfnd",o.x+3,o.y+34,7)
-					prints("skip",o.x+3,o.y+28,7)
+					prints("dfnd",o.x+3,o.y+28,7)
+					prints("skip",o.x+3,o.y+34,7)
+
+					local cyo=b.current_option*6
+					pset(o.x+27,o.y+17+cyo,7)
+					pset(o.x+26,o.y+18+cyo,7)
+					pset(o.x+27,o.y+19+cyo,7)
 				end,
-				y_position=88
+				y_position=88,
+				options=4,
+				current_option=0
 			}
 		},
 		draw=function(s)
