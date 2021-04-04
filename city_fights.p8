@@ -13,8 +13,8 @@ function _init()
 
 	local m=create_map(10,10)
 	local t={
-		make_character(4,4,64,"jeff",make_movement("x",3)),
-		make_character(3,1,65,"bob",make_movement("x",4)),
+		make_character(4,4,64,"yuri",make_movement("x",3)),
+		make_character(3,1,65,"mike",make_movement("x",4)),
 		make_character(7,2,66,"karl",make_movement("x",2))
 	}
 	local e={
@@ -234,6 +234,7 @@ select_character=function(t,s)
 			
 			local p=t[s.selected_index]
 			current_scene.map:focus_tile(p.position)
+			ui.char=p
 			
 			if(c)then
 				local c=current_scene:state_callback(select_character(t,s.selected_index))
@@ -342,12 +343,28 @@ end
 -- ui
 function make_char_bar(p)
 	return {
-		draw=function()
+		offset=v(0,0),
+		char=p,
+		draw=function(s)
 			local c=current_scene.camera
-			local o=v(c.x,112+c.y)
+			local o=v(c.x+s.offset.x,104+c.y+s.offset.y)
 			spr(128,o.x,o.y,4,2)
-			spr(p.sprite,o.x+1,o.y+1)
-			print(smallcaps(p.name),o.x+9,o.y+4,7)
+			spr(144,o.x,o.y+16,4,1)
+			spr(s.char.sprite,o.x+4,o.y+1)
+			prints(s.char.name,o.x+11,o.y+4,7)
+			pset(o.x+3,o.y+5,7)
+			pset(o.x+2,o.y+6,7)
+			pset(o.x+3,o.y+7,7)
+			pset(o.x+27,o.y+5,7)
+			pset(o.x+28,o.y+6,7)
+			pset(o.x+27,o.y+7,7)
+			
+			print("♥",o.x+1,o.y+11,8)
+			print("90/00",o.x+9,o.y+11,7)
+			print("◆",o.x+1,o.y+18,12)
+			print("90",o.x+9,o.y+18,7)
+			print("✽",o.x+17,o.y+18,3)
+			print("9",o.x+25,o.y+18,7)
 		end
 	}
 end
@@ -372,6 +389,9 @@ function cp_array(a)
 	return r
 end
 
+function prints(s,x,y,c)
+	print(smallcaps(s),x,y,c)
+end
 function smallcaps(s)
 	local t=""
   	for i=1,#s do
@@ -444,14 +464,14 @@ eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee6eeeeeeeeeeeeeeeeeeeeeedeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeeee8eeeeeee8eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee666eeeeeeeeeeeeeeeeeedddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-eeeeeeeeee898eeeee888eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee66666eeeeeeeeeeeeeedddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-ee000eeeee888eeeee888eeeee33aeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee6666666eeeeeeeeeedddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-ee888eeeee222eeeee222eeeee3333eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee666666666eeeeeedddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-ee4ffeeeeeaffeeeeeaaaeeeee0ffeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee66666666666eedddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee666eeeeeeeeeeeeeeeeeedddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeee8eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee66666eeeeeeeeeeeeeedddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+ee000eeeee444eeeee898eeeee33aeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee6666666eeeeeeeeeedddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+ee888eeee22222eeee888eeeee3333eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee666666666eeeeeedddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+ee4ffeeeee5ffeeeee4ffeeeee0ffeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee66666666666eedddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 ee6f7eeeeefffeeeeefffeeeeeff0eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee666666666666ddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-e77f77ee9982899e9999999e3330333eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee666666666666ddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-f77f77fe8982898e8999998e3a30333eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee666666666666ddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+e77f77eee98289eee99999ee3330333eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee666666666666ddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+f77f77fe8999998e8999998e3a30333eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee666666666666ddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 f77477fe8882888e8999998e3330333eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee666666666666ddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 477f774ef88288fef89998fef33033feeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee666666666666ddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 e00000eee22222eee22922eee00000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee666666666666ddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
